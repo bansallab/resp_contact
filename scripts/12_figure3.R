@@ -42,7 +42,7 @@ df.fips <- read_csv('data/input/state_and_county_fips_master.csv') %>%
 #### age estimates ####
 
 age_estimates <- read_csv("data/output/baseline_contact_by_county_week_by_age.csv",
-                          col_types = "diDDidfiddiiiddfccfddddidddddddddddd")
+                          col_types = "diDDidfidiiididiccidddddddddddddddddddddddddddiddddddddddddddddddd")
 
 # map of counties we used
 amap <- CountyChoropleth$new(age_estimates %>% group_by(fips) %>% 
@@ -60,15 +60,14 @@ foo <- age_estimates %>% left_join(urb_rur_codes) %>%
   summarise()
 
 # check age specific coefficient differences
-age_spec <- age_estimates %>% dplyr::select(fips, age, intercept, slope_county, 
-                                            slope_national, slope_policyox) %>% 
+age_spec <- age_estimates %>% dplyr::select(fips, age, intercept, contains("slope")) %>% 
   distinct()
 
 (age_spec %>%  mutate(age_fct = case_when(age == 1 ~ "18-54",
                                           age == 2 ~ "55-64",
                                           age == 3 ~"65-74",
                                           age == 4 ~ "75+")) %>% 
-    ggplot(aes(x = age_fct, y = slope_national)) + 
+    ggplot(aes(x = age_fct, y = national_cases_roll4_slope)) + 
     geom_jitter(aes(col = age_fct), alpha = 0.5) +
     geom_boxplot(fill = NA, outlier.shape = NA) + 
     labs(y = "National incidence slope", x = "Age") +
@@ -112,7 +111,7 @@ levels(agg_age_comp$setting) <- c("pandemic", "disease = 0", "baseline") #CHECK 
 
 #### gender results ####
 gender_estimates <- read_csv("data/output/baseline_contact_by_county_week_by_gender.csv",
-                             col_types = "diDDidfiddiiiddfccfddddidddddddddddd")
+                             col_types = "diDDidfidiiididiccidddddddddddddddddddddddddddiddddddddddddddddddd")
 
 # map of counties we used
 gmap <- CountyChoropleth$new(gender_estimates %>% group_by(fips) %>% 
@@ -157,12 +156,11 @@ levels(agg_gender_comp$setting) <- c("pandemic", "disease = 0", "baseline")
 
 # check gender specific coefficient differences
 gender_spec <- gender_estimates %>% 
-  dplyr::select(fips, gender, intercept, slope_county, 
-                slope_national, slope_policyox) %>% 
+  dplyr::select(fips, gender, intercept, contains("slope")) %>% 
   distinct()
 
 (gender_spec %>% mutate(gender_cat = ifelse(gender == 1, "men", "women")) %>% 
-    ggplot(aes(x = gender_cat, y = slope_national)) + 
+    ggplot(aes(x = gender_cat, y = national_cases_roll4_slope)) + 
     geom_jitter(aes(col = gender_cat), alpha = 0.5) +
     geom_boxplot(fill = NA, outlier.shape = NA) + 
     labs(y = "National incidence slope", x = "Gender") +
@@ -179,69 +177,6 @@ gender_spec <- gender_estimates %>%
 #### setting estimates ####
 setting_estimates <- read_csv("data/output/baseline_contact_by_county_week_by_setting.csv",
                               col_types = "diDDidfiddiiiddfccfddddidddddddddddd")
-
-coef_checks <- setting_estimates %>% 
-  mutate(nat_effect = national_cases_roll4 * slope_national,
-         county_effect = county_cases_roll4 * slope_county,
-         pol_effect = oxz * slope_policyox) %>% 
-  group_by(setting, state) %>% 
-  summarise(mean_nat = mean(nat_effect),
-            mean_county = mean(county_effect),
-            mean_pol = mean(pol_effect))
-
-# map coefficients
-for(soi in c("other", "work", "social", "shopping")){
-  doi <- setting_estimates %>% filter(setting == soi) %>% 
-    dplyr::select(fips, week, contact_fit) %>% 
-    #distinct() %>% 
-    group_by(fips) %>% 
-    summarise(mean_contact = mean(contact_fit)) %>% 
-    rename(value = mean_contact,
-           region = fips) 
-  
-  smap <- CountyChoropleth$new(doi)
-  smap$ggplot_polygon <- geom_polygon(aes(fill = value), color = NA, linewidth = 0.01)
-  smap$set_num_colors(1)
-  smap$ggplot_scale <- scale_fill_gradientn(colors = met.brewer("VanGogh3"),
-                                            #values = c(1, grad_mid, 0),
-                                            name = paste0("Fit, ", soi))
-  smap <- smap$render()
-  print(smap)
-}
-
-time_data <- setting_estimates %>% 
-  dplyr::select(fips, week, contact_fit, setting, state, hhs_region, ur_code) %>% 
-  group_by(fips, setting, hhs_region, ur_code, state) %>% 
-  mutate(z_contact = c(scale(contact_fit)),
-         mean_contact = mean(contact_fit)) %>% 
-  ungroup() %>% 
-  mutate(rel_mean_contact = mean_contact/mean(contact_fit))
-
-time_data %>% 
-  ggplot(aes(x = week, y = z_contact, group = fips, col = hhs_region)) + # this intercept is incorporating the random effect
-  geom_line(alpha = 0.3) +
-  theme_bw() +
-  theme(axis.text = element_text(size = 16),# angle = 10, hjust = 1),
-        plot.subtitle=element_text(size=16, hjust=0.5),
-        strip.text = element_text(size = 16),
-        axis.title = element_text(size = 18),
-        legend.text = element_text(size = 14),
-        legend.title = element_text(size = 14, vjust = 0.5), # + 
-        legend.position = "right") + #c(0.8, 0.3)) +  #"right") +
-  scale_x_date(breaks = seq(as.Date("2020-07-01"), as.Date("2021-04-30"),
-                            by = "3 month"),
-               labels = c("Jul 2020", "Oct", "Jan 2021",
-                          "Apr"),
-               minor_breaks = "1 month") +
-  scale_y_continuous(limits = c(-3, 3), breaks = c(-2, -1, 0, 1, 2)) + # can change this
-  labs(y = "Mean contacts\n(z-score)") +
-  facet_wrap(~setting)
-
-setting_estimates %>% group_by(setting, week) %>% 
-  summarise(mean_contact = mean(contact_fit),
-            mean_baseline = mean(scale_baseline)) %>% 
-  ggplot(aes(x = week, y = mean_contact)) +
-  geom_line(aes(group = setting, col = setting))
 
 agg_setting_comp <- setting_estimates %>% 
   pivot_longer(cols = c(contact_fit, baseline, scale_baseline),
@@ -271,13 +206,12 @@ agg_setting_comp$setting <- factor(agg_setting_comp$setting, levels = c("other",
           axis.text.x = element_text(angle = 20, hjust = 1)) -> setting_pandemic)
 
 setting_spec <- setting_estimates %>% 
-  dplyr::select(fips, setting, intercept, #slope_county, 
-                slope_national, slope_policyox) %>% 
+  dplyr::select(fips, setting, intercept, contains("slope")) %>% 
   distinct()
 setting_spec$setting <- factor(setting_spec$setting, levels = c("other", "social", "shopping", "work"))
 
 (setting_spec %>% 
-    ggplot(aes(x = setting, y = slope_national)) + 
+    ggplot(aes(x = setting, y = national_cases_roll4_slope)) + 
     geom_jitter(aes(col = setting), alpha = 0.5) +
     geom_boxplot(fill = NA, outlier.shape = NA) + 
     geom_hline(yintercept = 0, col = "black", lty = "dashed") +
@@ -355,6 +289,110 @@ work_scaled_plot %>%
   labs(y = "Mean work contacts", x = "") 
 ggsave("figures/supp/google-vs-safegraph-work-comparison.pdf", height = 4, width = 6)
 
+#### google mobility data 2022 ####
+# I want to look at google workplace signal at end of 2022 and to see if there is difference
+#   from mobility in 2019/pre 2020 pandemic
+google_mob_data_2020 <- read_csv("data/input/google_mobility_data/2020_US_Region_Mobility_Report.csv") %>% 
+  rename(fips = census_fips_code) %>% 
+  dplyr::select(-c(country_region_code, country_region, sub_region_1, sub_region_2, 
+                   iso_3166_2_code, place_id, metro_area)) %>% 
+  filter(!is.na(fips)) %>% 
+  mutate(fips = as.integer(fips))
+google_mob_data_2021 <- read_csv("data/input/google_mobility_data/2021_US_Region_Mobility_Report.csv") %>% 
+  rename(fips = census_fips_code) %>% 
+  dplyr::select(-c(country_region_code, country_region, sub_region_1, sub_region_2, 
+                   iso_3166_2_code, place_id, metro_area)) %>% 
+  filter(!is.na(fips)) %>% 
+  mutate(fips = as.integer(fips))
+google_mob_data_2022 <- read_csv("data/input/google_mobility_data/2022_US_Region_Mobility_Report.csv") %>% 
+  rename(fips = census_fips_code) %>% 
+  dplyr::select(-c(country_region_code, country_region, sub_region_1, sub_region_2, 
+                   iso_3166_2_code, place_id, metro_area)) %>% 
+  filter(!is.na(fips)) %>% 
+  mutate(fips = as.integer(fips))
+
+google_mob_data_2022_weekly <- google_mob_data_2020 %>% 
+  bind_rows(google_mob_data_2021) %>% 
+  bind_rows(google_mob_data_2022) %>% 
+  # gets weekly data
+  mutate(week = floor_date(date, unit = "week")) %>% 
+  group_by(fips, week) %>% 
+  summarise(retail_week = mean(retail_and_recreation_percent_change_from_baseline),
+            grocery_week = mean(grocery_and_pharmacy_percent_change_from_baseline),
+            parks_week = mean(parks_percent_change_from_baseline),
+            transit_week = mean(transit_stations_percent_change_from_baseline),
+            work_week = mean(workplaces_percent_change_from_baseline),
+            residential_week = mean(residential_percent_change_from_baseline))
+
+google_mob_data_2022_weekly %>% 
+  ggplot(aes(x = week, y = work_week, group = fips)) + 
+  geom_line(alpha = 0.03) + 
+  theme_bw() + 
+  geom_hline(yintercept = 0, col = "dodgerblue") +
+  geom_vline(xintercept = ymd("2020-03-16"), col = "firebrick", lty = "dashed") +
+  labs(y = "Mean weekly work mobility\nrelative to baseline") -> pgoogle
+
+# look at BTS data, from: 
+# https://www.bts.gov/daily-travel
+# https://data.bts.gov/Research-and-Statistics/Trips-by-Distance/w96p-f2qv/about_data
+bts <- read_csv("data/input/Trips_by_Distance_20241202.csv") 
+
+bts_county <- bts %>% 
+  filter(Level == "County") %>% 
+  mutate(fips = as.integer(`County FIPS`),
+         est_pop = `Population Staying at Home` + `Population Not Staying at Home`,
+         prop_home = `Population Staying at Home`/est_pop) %>% 
+  left_join(recent_pop_data) 
+
+bts_weekly <- bts_county %>% 
+  mutate(week = floor_date(Date, unit = "week")) %>% 
+  group_by(fips, week) %>% 
+  summarise(mean_prop_home = mean(prop_home, na.rm = T)) %>% 
+  ungroup %>% 
+  filter(! is.na(mean_prop_home))
+
+# estimated population is about right
+
+prepandemic_mean <- bts_weekly %>% 
+  filter(week < ymd("2020-01-01")) %>% 
+  pull(mean_prop_home) %>% 
+  mean()
+
+bts_weekly %>% left_join(urb_rur_codes) %>% 
+  filter(ur_code != 6) %>% 
+  ggplot(aes(x = week, y = mean_prop_home, group = fips)) + 
+  geom_line(alpha = 0.03) + 
+  theme_bw() + 
+  geom_hline(yintercept = prepandemic_mean, col = "dodgerblue") +
+  geom_vline(xintercept = ymd("2020-03-16"), col = "firebrick", lty = "dashed") +
+  labs(y = "Mean proportion of\npeople staying home") -> pbts
+
+new_data <- read_csv("data/input/social_distancing_county_2019_2020_2021_visitorcount.csv",
+                     col_types = "Diddddddd") %>% 
+  rename(fips = countyFIPS) %>% 
+  filter(fips < 60000)
+
+new_data %>% 
+  mutate(week = floor_date(date, unit = "week")) %>% 
+  group_by(fips, week) %>% 
+  summarise(prop_visitor_maxvisitor_mean = mean(prop_visitor_maxvisitor)) %>% 
+  ungroup() %>% 
+  filter(week < ymd("2021-05-01")) -> safedata
+
+safedata %>% 
+  left_join(urb_rur_codes) %>% 
+  filter(ur_code != 6) %>% 
+  ggplot(aes(x = week, y = prop_visitor_maxvisitor_mean, group = fips)) +
+  geom_line(alpha = 0.03) + 
+  theme_bw() + 
+  #geom_hline(yintercept = prepandemic_mean, col = "dodgerblue") +
+  geom_vline(xintercept = ymd("2020-03-16"), col = "firebrick", lty = "dashed") +
+  scale_x_date(date_labels = "%Y", date_breaks = "1 year") +
+  labs(y = "Safegraph mobility metric") -> psafe
+
+ggarrange(pgoogle, pbts, psafe, nrow = 3, labels = "AUTO")
+ggsave("figures/supp/google-bts-comp.pdf", height = 8, width = 10)
+
 
 # ------------------------------ #
 #### make all together figure ####
@@ -362,7 +400,7 @@ ggsave("figures/supp/google-vs-safegraph-work-comparison.pdf", height = 4, width
 # read in race and urban/rural data here
 #### race data ####
 race_estimates <- read_csv("data/output/baseline_contact_by_state_week_by_race.csv",
-                           col_types = "dcDDidfiiiddiddddddddddddddcicd")
+                           col_types = "dcDDidfiiididddddddddddddddddddddddddcicd")
 
 agg_race_comp <- race_estimates %>% 
   pivot_longer(cols = c(contact_fit, baseline, scale_baseline),
@@ -391,12 +429,11 @@ levels(agg_race_comp$race_cat_col) <- c("Asian", "Black", "Hispanic", "Other", "
           strip.text = element_text(size = 16),
           axis.text.x = element_text(angle = 20, hjust = 1)) -> race_pandemic)
 
-race_spec <- race_estimates %>% dplyr::select(state, race_cat_col, intercept, #slope_state, slope_policyox,
-                                              slope_national) %>% 
+race_spec <- race_estimates %>% dplyr::select(state, race_cat_col, intercept, contains("slope")) %>% 
   distinct()
 levels(race_spec$race_cat_col) <- c("Asian", "Black", "Hispanic", "Other", "White")
 
-(race_spec %>% ggplot(aes(x = race_cat_col, y = slope_national)) + 
+(race_spec %>% ggplot(aes(x = race_cat_col, y = national_cases_roll4_slope)) + 
     geom_jitter(aes(col = race_cat_col), alpha = 0.5) +
     geom_boxplot(fill = NA, outlier.shape = NA) + 
     labs(y = "National incidence slope", x = "Race/Ethnicity") +
@@ -412,113 +449,6 @@ levels(race_spec$race_cat_col) <- c("Asian", "Black", "Hispanic", "Other", "Whit
           strip.text = element_text(size = 16),
           axis.text.x = element_text(angle = 20, hjust = 1)) -> race_slope)
 
-#### urban v rural estimates ####
-mob_scaled_baseline_data <- read_csv("data/output/baseline_contact_by_county_week_nopolicy.csv",
-                                     col_types = "diDDididdddiiiddddfcffddddccccddddddddddddddddd")
-spatiotemporal_fits <- read_csv("data/output/normal_gamma2_72trunc/fitted_predictions.csv",
-                                col_types = "ddiiddddddddiiDccDccf") %>% ungroup()
-urb_rur_codes <- read_excel("data/input/NCHSURCodes2013.xlsx") %>% 
-  rename(fips = `FIPS code`) %>% 
-  mutate(`CBSA 2012 pop` = as.integer(`CBSA 2012 pop`),
-         `County 2012 pop` = as.integer(`County 2012 pop`)) %>% 
-  dplyr::select(fips, `State Abr.`, `County name`, `CBSA title`, `2013 code`, `County 2012 pop`) %>% 
-  rename(state = `State Abr.`, county = `County name`, area = `CBSA title`, ur_code = `2013 code`,
-         population_2012 = `County 2012 pop`) %>%  # can ignore warnings
-  mutate(ur_code = as.factor(ur_code),
-         fips = as.integer(fips)) %>% ungroup() %>% 
-  dplyr::select(fips, ur_code)
-mob_scaled_baseline_data$ur_code <- factor(mob_scaled_baseline_data$ur_code, levels = c("1", "2", "3", "4", "5", "6"))
-spatiotemporal_fits$ur_code <- factor(spatiotemporal_fits$ur_code, levels = c("1", "2", "3", "4", "5", "6"))
-
-### trying with higher sampled counties - UR code ###
-suff_samp_fips <- spatiotemporal_fits %>% 
-  filter(week >= ymd("2020-10-01"),
-         week <= ymd("2021-04-25")) %>%
-  mutate(enough = ifelse(samp_size >= 10, 1, 0)) %>% 
-  group_by(fips) %>%
-  summarise(sum_samp = sum(enough, na.rm = T)) %>%
-  filter(sum_samp == 30) %>% # 30 weeks
-  pull(fips)
-
-ur_plot_data3 <- mob_scaled_baseline_data %>%
-  group_by(fips) %>% 
-  summarise(mean_pandemic = mean(contact_fit),
-            mean_baseline_nomob = mean(baseline),
-            mean_baseline_mob = mean(scale_baseline)) %>% 
-  filter(fips %in% suff_samp_fips) %>% 
-  filter(fips < 15000 | fips >= 16000) %>%  # removing hawaii, alaska already removed
-  pivot_longer(cols = c(mean_baseline_nomob, mean_baseline_mob, mean_pandemic), 
-               names_to = "setting", values_to = "mean_contact")
-ur_plot_data3$setting <- factor(ur_plot_data3$setting, levels = c("mean_pandemic", "mean_baseline_nomob", "mean_baseline_mob"))
-levels(ur_plot_data3$setting) <- c("Pandemic", "Pre-pandemic no mob", "Pre-pandemic")
-
-ur_plot_data3 %>% 
-  left_join(urb_rur_codes) %>% 
-  filter(setting != "Pre-pandemic no mob") %>% 
-  ggplot(aes(x = ur_code, y = mean_contact)) + 
-  geom_jitter(aes(col = ur_code), alpha = 0.5) +
-  geom_boxplot(fill = NA, outlier.shape = NA) +
-  facet_wrap(~setting) +
-  labs(y = "Mean contact", x = "NCHS Urban-Rural Class") +
-  theme_bw() + 
-  scale_color_met_d(name = "Derain", direction = -1) +
-  theme(legend.position = "none",
-        axis.text = element_text(size = 14),
-        axis.title = element_text(size = 16),
-        strip.text = element_text(size = 16))
-
-mob_scaled_baseline_data %>%
-  dplyr::select(fips, ur_code, intercept, slope_national, slope_county) %>%  #, slope_policyox) %>% 
-  distinct() %>% 
-  filter(fips %in% suff_samp_fips) %>% 
-  ggplot(aes(x = ur_code, y = slope_county)) + 
-  geom_jitter(aes(col = ur_code), alpha = 0.5) +
-  geom_boxplot(fill = NA, outlier.shape = NA) + 
-  labs(y = "County incidence slope", x = "UR Class") +
-  theme_bw() +
-  geom_hline(yintercept = 0, lty = "dashed") +
-  #annotate(geom = "text", label = "More responsive", x = "55-64", y = -4.5E-06, col = "royalblue") +
-  scale_color_met_d(name = "Derain") +
-  theme(legend.position = "none",
-        axis.text = element_text(size = 14),
-        axis.title = element_text(size = 16))
-
-{ doi <- mob_scaled_baseline_data %>%
-    dplyr::select(fips, ur_code, intercept, slope_national, #slope_county, 
-                  slope_policyox) %>% 
-    distinct() %>% 
-    filter(fips %in% suff_samp_fips) %>% 
-    rename(value = slope_national, region = fips)
-  mid <- 0 # midpoint here is 0 not 1
-  grad_mid <- (mid-min(doi$value))/(max(doi$value)-min(doi$value))
-  slopemap <- CountyChoropleth$new(doi)
-  slopemap$ggplot_polygon <- geom_polygon(aes(fill = value), color = NA, linewidth = 0.01)
-  slopemap$set_num_colors(1)
-  slopemap$ggplot_scale <- scale_fill_gradientn(colors = met.brewer("Benedictus"),
-                                                values = c(1, grad_mid, 0),
-                                                name = "National")
-  slopemap <- slopemap$render()
-  print(slopemap)
-  }
-
-ur_spec <- mob_scaled_baseline_data %>% 
-  dplyr::select(fips, ur_code, intercept, #slope_county, 
-                slope_national, slope_policyox) %>% 
-  distinct()
-
-ur_spec %>% 
-  ggplot(aes(x = ur_code, y = slope_national)) + 
-  geom_jitter(aes(col = ur_code), alpha = 0.5) +
-  geom_boxplot(fill = NA, outlier.shape = NA) + 
-  labs(y = "National incidence slope", x = "UR Class") +
-  theme_bw() +
-  geom_hline(yintercept = 0, col = "royalblue", lty = "dashed") +
-  #annotate(geom = "text", label = "More responsive", x = "female", y = -5.5E-06, col = "royalblue")
-  scale_color_met_d(name = "Derain") +
-  theme(legend.position = "none",
-        axis.text = element_text(size = 14),
-        axis.title = element_text(size = 16))
-
 contact_plot <- ggarrange(age_pandemic, gender_pandemic,
                           race_pandemic, setting_pandemic,
                           ncol = 2, nrow = 2,
@@ -530,6 +460,8 @@ slope_plot <- ggarrange(age_slope, gender_slope,
 
 contact_plot
 ggsave("figures/fig3.pdf", height = 8, width = 16)
+library(Cairo)
+ggsave("figures/fig3.eps", device = cairo_ps, height = 8, width = 16)
 
 slope_plot
 ggsave("figures/supp/nat-coefs-demog.pdf", height = 8, width = 16)

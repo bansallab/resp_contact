@@ -165,7 +165,7 @@ states_to_model <- data.frame(fips = large_enough_age_fips) %>%
 #### RUN THE MAIN MODEL ####
 # ------------------------ #
 
-folder_name <- "AGE_72trunc" # TODO: CHANGE FOLDER ACCORDING TO TRUNCATION AND CATEGORY
+folder_name <- "age4_72trunc_m1" # TODO: CHANGE FOLDER ACCORDING TO TRUNCATION AND CATEGORY
 require(gratia)
 
 for(age_level in c(1, 2, 3, 4)){
@@ -229,7 +229,7 @@ for(age_level in c(1, 2, 3, 4)){
         # num counties within state, but still just fitting one model per state, but fips is a covariate
         # model might be separate for each state, but still individual predictions for each fips
         
-        fit <- bam(non_hh_contacts ~ s(week_rank, k = 30, m = 2) + s(week_rank, fips, bs = 'fs', k = 15, m = 2), # factor-smooth interaction, 
+        fit <- bam(non_hh_contacts ~ s(week_rank, k = 30, m = 2) + s(week_rank, fips, bs = 'fs', k = 15, m = 1), # factor-smooth interaction, 
                    #fips is factor, so diff spline per fips (this approach closer to random effects than if did by factor level, SHARED SMOOTHNESS PARAM)
                    data = df.fit,
                    weights = samp_size,
@@ -241,7 +241,7 @@ for(age_level in c(1, 2, 3, 4)){
         # discrete is only difference maybe just cause so many factors have to help speed up
       }else{
         # fit the model
-        fit <- bam(non_hh_contacts ~ s(week_rank, k = 30, m = 2) + s(week_rank, fips, bs = 'fs', k = 15, m = 2),
+        fit <- bam(non_hh_contacts ~ s(week_rank, k = 30, m = 2) + s(week_rank, fips, bs = 'fs', k = 15, m = 1),
                    data = df.fit, # m = 2 means order of penalty, 2 is for normal cubic spline penalty with 2nd derivatives
                    weights = samp_size,
                    method = 'fREML', # fast reml

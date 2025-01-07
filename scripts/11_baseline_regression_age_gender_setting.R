@@ -69,10 +69,7 @@ nyt_county_case_data <- read_csv("data/input/nyt-us-counties-rolling-avg-2020.cs
   ungroup() %>% 
   tidyr::complete(week, fips, fill = list(county_cases = 0)) %>% 
   group_by(fips) %>% 
-  mutate(county_cases_roll3 = round(zoo::rollmean(county_cases, k = 3, fill = NA, align = "right"), 2),
-         county_cases_roll4 = round(zoo::rollmean(county_cases, k = 4, fill = NA, align = "right"), 2),
-         county_cases_roll3_per100k = round(county_cases_roll3/(POPESTIMATE2020/1e5), 2),
-         county_cases_roll4_per100k = round(county_cases_roll4/(POPESTIMATE2020/1e5), 2)) %>% 
+  mutate(county_cases_roll4 = round(zoo::rollmean(county_cases, k = 4, fill = NA, align = "right"), 2)) %>% 
   ungroup() %>% 
   mutate(state_fips = as.integer(as.numeric(ifelse(nchar(as.character(fips)) == 4, 
                                                    substr(as.character(fips), 1, 1),
@@ -102,10 +99,7 @@ nyt_state_case_data <- read_csv("data/input/nyt-us-states-rolling-avg.csv",
   ungroup() %>% 
   tidyr::complete(week, state_fips, fill = list(state_cases = 0)) %>% 
   group_by(state_fips) %>% 
-  mutate(state_cases_roll3 = round(zoo::rollmean(state_cases, k = 3, fill = NA, align = "right"), 2),
-         state_cases_roll4 = round(zoo::rollmean(state_cases, k = 4, fill = NA, align = "right"), 2),
-         state_cases_roll3_per100k = round(state_cases_roll3/(state_pop/1e5), 2),
-         state_cases_roll4_per100k = round(state_cases_roll4/(state_pop/1e5), 2)) %>% 
+  mutate(state_cases_roll4 = round(zoo::rollmean(state_cases, k = 4, fill = NA, align = "right"), 2)) %>% 
   ungroup()
 
 
@@ -118,10 +112,7 @@ nyt_national_roll <- read_csv("data/input/nyt-us-national-rolling-avg.csv",
   summarise(national_cases = sum(cases)) %>% 
   #national_cases = ifelse(national_cases < 0, 0, national_cases)) %>% # three negs?? 
   ungroup() %>% 
-  mutate(national_cases_roll3 = zoo::rollmean(national_cases, k = 3, fill = NA, align = "right"),
-         national_cases_roll4 = zoo::rollmean(national_cases, k = 4, fill = NA, align = "right"),
-         national_cases_roll3_per100k = round(national_cases_roll3/(331900000/1e5), 2), # total us pop
-         national_cases_roll4_per100k = round(national_cases_roll4/(331900000/1e5), 2)) %>% 
+  mutate(national_cases_roll4 = zoo::rollmean(national_cases, k = 4, fill = NA, align = "right")) %>% 
   ungroup()
 
 
@@ -133,56 +124,96 @@ all_cases <- nyt_county_case_data %>%
 
 # not doing state cases, but could download from NYT and follow same steps if necessary
 
-fips_to_plot_ur <- data.frame(fips = c(29095, 26163, 6067, 36055, 34039, # 1
-                                       48055, 24017, 51650, 34031, 41071, # 2
-                                       28121, 42049, 55045, 42099, 23031, # 3
-                                       47019, 53015, 35013, 51069, 12005, # 4
-                                       8045, 13031, 29105, 17099, 5005, # 5
-                                       29029, 47123, 8029, 19125, 17135)) %>%  # 6
-  left_join(df.fips) %>% 
-  mutate(full_name = paste0(gsub(" County", "", name), ", ", state))
-
 fips_I_want <- data.frame(fips = c(6037, 12086, 4013, 22071, 53033, 48141,
                                    34013, 21111, 35001, 42003, 37183,
                                    48453, 18105, 36087, 1015, 23007, 33011,
-                                   27003, 31019, 30073)) %>% 
+                                   27003, 31019, 30029)) %>% 
   left_join(df.fips) %>% 
   mutate(full_name = paste0(gsub(" County", "", name), ", ", state)) %>% 
   arrange(fips)
 
 fips_I_want_short <- fips_I_want %>% 
-  filter(fips %in% c(30073, 31019, 1015, 33011, 27003,
+  filter(fips %in% c(30029, 31019, 1015, 33011, 27003,
                      4013, 6037, 48453, 12086, 21111, 53033, 34013))
 
-# from here: https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/VOQCHQ
-election_data_2020 <- read_csv("data/input/mit_election_data/countypres_2000-2020.csv",
-                               col_types = "iccciccciiic") %>% 
-  filter(year == 2020, party %in% c("DEMOCRAT", "REPUBLICAN")) %>% 
-  dplyr::select(state_po, county_fips, totalvotes, party, candidatevotes, mode) %>% 
-  mutate(county_fips = ifelse(state_po == "DC", 11001, county_fips)) %>%  # DC fips is NA for some reason
-  # Alaska districts are weird so we may just need to exclude
-  group_by(state_po, county_fips, party, totalvotes) %>% 
-  summarise(candidatevotes = sum(candidatevotes)) %>% 
-  pivot_wider(names_from = party, values_from = candidatevotes) %>% 
-  mutate(prop_dem = DEMOCRAT/totalvotes,
-         prop_gop = REPUBLICAN/totalvotes) %>% 
-  ungroup()
-
+# formatted by Casey Zipfel
+policy_data <- read_csv("data/input/covs_updated_for_inla_6_10.csv", 
+                        col_types = cols_only(fips = col_integer(),
+                                              week_date = col_date(),
+                                              state_SAH = col_double(),
+                                              county_SAH = col_double(),
+                                              state_gathering_ban = col_double(),
+                                              county_gathering_ban = col_double(),
+                                              state_rest_closure = col_double(),
+                                              county_rest_closure = col_double(), 
+                                              state_bar_closure = col_double(),
+                                              county_bar_closure = col_double(),
+                                              county_mask_mandate = col_double(),
+                                              state_mask_mandate = col_double())) %>% 
+  rename(week = week_date) %>% 
+  mutate(across(c(state_SAH:county_mask_mandate),
+                ~ifelse(is.na(.x), 0, .x))) %>% 
+  mutate(sum_county_measures = county_SAH + county_gathering_ban + county_rest_closure +
+           county_bar_closure + county_mask_mandate,
+         sum_state_measures = state_SAH + state_gathering_ban + state_rest_closure +
+           state_bar_closure + state_mask_mandate) %>% 
+  filter(week > ymd("2020-10-01")) %>% 
+  group_by(fips) %>% 
+  mutate(min_sum_county_measures = min(sum_county_measures)) %>% 
+  ungroup() %>% 
+  mutate(sum_county_measures_shift = sum_county_measures - min_sum_county_measures)
 
 # try oxford data
-oxdata <- read_csv("data/stringency/OxCGRT_compact_subnational_v1.csv") %>% 
+full_oxdata <- read_csv("data/stringency/OxCGRT_compact_subnational_v1.csv") %>% 
   filter(CountryCode == "USA", !is.na(RegionName)) %>% 
   dplyr::select(-contains("Flag"), # remove these columns
                 -c(CountryCode, CountryName, RegionName, CityName, CityCode, Jurisdiction)) %>% 
   mutate(date = ymd(Date),
          week = round_date(date, unit = "week")) %>% 
-  separate(RegionCode, into = c(NA, "state"), sep = "_") %>% # get state abbreviation
-  filter(week >= ymd("2020-06-01"), week <= ymd("2021-05-01")) %>% 
+  separate(RegionCode, into = c(NA, "state"), sep = "_") # get state abbreviation
+
+oxdata_week <- full_oxdata %>% 
   dplyr::select(-Date) %>% 
   group_by(state, week) %>% # three combined indices of interest at week-state level
   summarise(StringencyIndex_Average = mean(StringencyIndex_Average),
             ContainmentHealthIndex_Average = mean(ContainmentHealthIndex_Average),
-            GovernmentResponseIndex_Average = mean(GovernmentResponseIndex_Average))
+            GovernmentResponseIndex_Average = mean(GovernmentResponseIndex_Average)) %>% 
+  ungroup() %>% 
+  group_by(state) %>% 
+  mutate(StringencyIndex_Average_roll3 = zoo::rollmean(StringencyIndex_Average, k = 3, align = "center", fill = NA)) %>% 
+  ungroup()
+
+state_min_strin <- oxdata_week %>%
+  filter(week > ymd("2022-06-01")) %>% 
+  group_by(state) %>%
+  summarise(min_strin_2022 = min(StringencyIndex_Average_roll3, na.rm = T))
+
+state_mean_strin_study_pd <- oxdata_week %>%
+  filter(week > ymd("2020-10-01"), week < ymd("2021-05-01")) %>%
+  group_by(state) %>%
+  summarise(tail_strin = tail(StringencyIndex_Average_roll3, 1),
+            min_strin = min(StringencyIndex_Average_roll3, na.rm = T))
+
+oxdata <- oxdata_week %>% 
+  filter(week >= ymd("2020-10-01"), week <= ymd("2021-05-01")) %>% 
+  left_join(state_mean_strin_study_pd) %>% 
+  left_join(state_min_strin) %>% 
+  mutate(StringencyIndex_Average_roll3_shifttail = StringencyIndex_Average_roll3 - tail_strin,
+         StringencyIndex_Average_roll3_shiftmin = StringencyIndex_Average_roll3 - min_strin,
+         StringencyIndex_Average_roll3_shift2022 = StringencyIndex_Average_roll3 - min_strin_2022) %>% 
+  group_by(state) %>% 
+  mutate(StringencyIndex_Average_z = c(scale(StringencyIndex_Average))) %>% 
+  ungroup() %>% 
+  group_by(state) %>% 
+  mutate(StringencyIndex_Average_z_mincentered = c(scale(StringencyIndex_Average_roll3_shiftmin, center = F)))
+
+# from Andrew Tiu paper
+dataverse_vax_data <- read_csv("data/input/COVID_county_vacc_data_dataverse.csv") %>% 
+  mutate(fips = as.integer(COUNTY),
+         percent_vaxxed = CASES * 100,
+         week = floor_date(converted_date, unit = "week")) %>% 
+  dplyr::select(fips, week, percent_vaxxed)
+
 
 mobility_scale <- read_csv("data/output/mobility_19_20_fall_ratio_new_norm.csv", col_types = "iddd")
 
@@ -294,48 +325,47 @@ GROUP <- "age" # TODO: change when change demographic/social group
 
 # MAKE SURE TO CHANGE LARGE ENOUGH CONDITION and SELECT
 for(age_level in c(1, 2, 3, 4)){
-  folder_name <- "age4_72trunc"
+  folder_name <- "age4_72trunc_m1"
   folder_sublevel <- paste0("age", age_level)
-  spatiotemporal_fits <- read_csv(paste0("data/output/", folder_name, "/fitted_predictions_", folder_sublevel, "_update.csv"),
-                                  col_types = "ddiifddiiDccdDccfd") %>% ungroup() %>%
+  spatiotemporal_fits <- read_csv(paste0("data/output/", folder_name, "/fitted_predictions_", folder_sublevel, ".csv"),
+                                  col_types = "ddiifddiiDccDccfd") %>% ungroup() %>%
     mutate(age = age_level) # bc imputed counties won't have
   
   # for(gender_level in c(1, 2)){
   # 
-  #   folder_name <- "gender_72trunc"
+  #   folder_name <- "gender_72trunc_m1"
   #   folder_sublevel <- paste0("gender", gender_level)
-  #   spatiotemporal_fits <- read_csv(paste0("data/output/", folder_name, "/fitted_predictions_", folder_sublevel, "_update.csv"),
-  #                                   col_types = "ddiifddiiDccdDccfd") %>%
+  #   spatiotemporal_fits <- read_csv(paste0("data/output/", folder_name, "/fitted_predictions_", folder_sublevel, ".csv"),
+  #                                   col_types = "ddiifddiiDccDccfd") %>%
   #     mutate(gender = gender_level)
   
   # for(setting_level in c("social", "other", "shopping", "work")){
-  #   folder_name <- "contactsetting_72trunc"
+  #   folder_name <- "contactsetting_72trunc_m1"
   #   folder_sublevel <- setting_level
-  #   spatiotemporal_fits <- read_csv(paste0("data/output/", folder_name, "/fitted_predictions_", folder_sublevel, "_update.csv"),
-  #                                   col_types = "ddiifdiDccdDccfi") %>%
+  #   spatiotemporal_fits <- read_csv(paste0("data/output/", folder_name, "/fitted_predictions_", folder_sublevel, ".csv"),
+  #                                   col_types = "ddiifdiDccDccfi") %>%
   #     mutate(setting = setting_level)
   #    folder_sublevel <- paste0("setting_", setting_level) # have to update when write so other not confused with race
   
   combine_data <- 
-    spatiotemporal_fits %>% dplyr::select(fit, fips, week, month, samp_size, non_hh_contacts, age) %>% # TODO: change to gender or setting
+    spatiotemporal_fits %>% dplyr::select(fit, fips, week, month, samp_size, non_hh_contacts, age) %>% # CHANGE AGE & GENDER and setting!!!!!!!
     left_join(all_cases %>% dplyr::select(-POPESTIMATE2020), by = c("fips", "week")) %>% 
     left_join(urb_rur_codes, by = "fips") %>% 
     left_join(df.fips, by = "fips") %>% 
     left_join(hhs_regions, by = "fips") %>% 
-    left_join(election_data_2020 %>%
-                dplyr::select(county_fips, prop_gop) %>% 
-                rename(fips = county_fips, prop_gop_2020 = prop_gop),
-              by = "fips") %>%
+    left_join(policy_data, by = c("fips", "week")) %>% 
     left_join(oxdata, by = c("week", "state")) %>% 
+    left_join(dataverse_vax_data, by = c("fips", "week")) %>% 
+    mutate(percent_vaxxed = ifelse(is.na(percent_vaxxed), 0, percent_vaxxed)) %>% 
     left_join(recent_pop_data %>% dplyr::select(fips, POPESTIMATE2020), by = "fips") %>% 
-    filter(! fips %in% c(36005, 36047, 36061, 36081, 36085)) %>% 
+    filter(! fips %in% c(36005, 36047, 36061, 36081, 36085, 8111)) %>% 
     filter(state != "AK") %>% 
-    filter(fips %in% large_enough_age_fips) %>% # TODO: change to gender or setting
+    filter(fips %in% large_enough_age_fips) %>% # CHANGE BETWEEN GENDER AND AGE and setting!!!!!!
     rename(contact_fit = fit) %>% 
     mutate(fips = as.factor(fips),
            state = as.factor(state)) %>% 
-    filter(week <= ymd("2021-05-01"),
-           week > ymd("2020-06-01")) 
+    filter(week >= ymd("2020-10-01"),
+           week <= ymd("2021-04-25"))
   
   combine_data$hhs_region <- factor(combine_data$hhs_region,
                                     levels = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10"))
@@ -349,33 +379,24 @@ for(age_level in c(1, 2, 3, 4)){
   ##### MODEL #####
   #---------------#
   
-  model_data <- combine_data %>% 
-    filter(week >= ymd("2020-10-01"),
-           week <= ymd("2021-04-25")) %>%
-    ungroup() %>% 
-    group_by(fips) %>% 
-    mutate(oxz = c(scale(StringencyIndex_Average))) %>% 
-    ungroup() %>% 
-    dplyr::select(-contains("state_cases"),
-                  -contains("100k"))
+  #---------------#
+  ##### MODEL #####
+  #---------------#
   
   county_nat_model <- lmList(
-    contact_fit ~ 1 + 
-      oxz +
-      county_cases_roll4 + # TODO: comment out county to remove this predictor if performing sensitivity
-      national_cases_roll4 | fips, model_data
+    contact_fit ~ 1 + national_cases_roll4 * percent_vaxxed + sum_county_measures_shift + StringencyIndex_Average_roll3_shiftmin | fips, 
+    combine_data
   )
   
-  estimates <- model_data %>% 
+  estimates <- combine_data %>% 
     mutate(fips = as.integer(as.numeric(levels(fips))[as.integer(fips)])) %>% 
     left_join(coef(county_nat_model) %>% 
                 rownames_to_column("fips") %>% 
                 as_tibble() %>% 
                 mutate(fips = as.integer(fips)) %>% 
-                rename(intercept = `(Intercept)`, 
-                       slope_county = county_cases_roll4, 
-                       slope_national = national_cases_roll4,
-                       slope_policyox = oxz)) %>% 
+                rename(intercept = `(Intercept)`) %>% 
+                rename_with(~paste0(., "_slope"), -c(fips, intercept)), 
+              by = "fips") %>% 
     # extract standard error on each coefficient 
     left_join(coef(summary(county_nat_model))[, "Std. Error", ] %>% 
                 # [row (fips), column (estimate, error, t), coef (national, county, policy)]
@@ -383,14 +404,12 @@ for(age_level in c(1, 2, 3, 4)){
                 rownames_to_column("fips") %>% 
                 as_tibble() %>% 
                 mutate(fips = as.integer(fips)) %>% 
-                rename(intercept_se = `(Intercept)`, 
-                       county_se = county_cases_roll4, 
-                       national_se = national_cases_roll4, #)) %>% 
-                       policyox_se = oxz)) %>% 
+                rename(intercept_se = `(Intercept)`) %>% 
+                rename_with(~paste0(., "_se"), -c(fips, intercept_se)), 
+              by = "fips") %>% 
     cbind(residual = resid(county_nat_model)) %>% 
-    mutate(pred_lm = intercept + (slope_county * county_cases_roll4) + 
-             (slope_national * national_cases_roll4) + (slope_policyox * oxz),
-           baseline = intercept + residual) %>% 
+    cbind(pred_lm = predict(county_nat_model)) %>% 
+    mutate(baseline = intercept + residual) %>% 
     ungroup() %>% 
     left_join(mobility_scale) %>% 
     mutate(scale_baseline = baseline * phi)

@@ -14,7 +14,7 @@ new_data <- read_csv("data/input/social_distancing_county_2019_2020_2021_visitor
   rename(fips = countyFIPS) %>% 
   filter(fips < 60000)
 
-spatiotemporal_fits <- read_csv("data/output/normal_gamma2_72trunc/fitted_predictions.csv",
+spatiotemporal_fits <- read_csv("data/output/normal_gamma2_72trunc_m1/fitted_predictions.csv",
                                 col_types = "ddiiddddddddiiDccDccf") %>% ungroup()
 
 check_corr <- spatiotemporal_fits %>% 

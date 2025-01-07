@@ -22,7 +22,7 @@ df.fips <- read_csv('data/input/state_and_county_fips_master.csv')
 urb_rur_codes <- read_excel("data/input/NCHSURCodes2013.xlsx") %>% rename(fips = `FIPS code`) %>% 
   mutate(`CBSA 2012 pop` = as.integer(`CBSA 2012 pop`),
          `County 2012 pop` = as.integer(`County 2012 pop`)) %>% 
-  select(fips, `State Abr.`, `County name`, `CBSA title`, `2013 code`, 
+  dplyr::select(fips, `State Abr.`, `County name`, `CBSA title`, `2013 code`, 
          `County 2012 pop`) %>% 
   rename(state = `State Abr.`, county = `County name`, area = `CBSA title`,
          ur_code = `2013 code`, population = `County 2012 pop`) %>%  # can ignore warnings
@@ -76,7 +76,7 @@ states_to_model <- large_enough_race_states
 #### RUN THE MAIN MODEL ####
 # ------------------------ #
 
-folder_name <- "ethrace_72trunc_region4"
+folder_name <- "ethrace_72trunc_region4_m1"
 require(gratia)
 
 for(race_level in unique(state_week_by_race$race_cat_col)){
@@ -115,7 +115,7 @@ for(race_level in unique(state_week_by_race$race_cat_col)){
       mutate(id = row_number(),
              state = as.factor(state))
     
-    fit <- bam(non_hh_contacts ~ s(week_rank, k = 30, m = 2) + s(week_rank, state, bs = 'fs', k = 15, m = 2),
+    fit <- bam(non_hh_contacts ~ s(week_rank, k = 30, m = 2) + s(week_rank, state, bs = 'fs', k = 15, m = 1),
                data = df.fit, # m = 2 means order of penalty, 2 is for normal cubic spline penalty with 2nd derivatives
                weights = samp_size,
                method = 'fREML', # fast reml

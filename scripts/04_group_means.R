@@ -89,6 +89,13 @@ county_week <- raked_data %>%
 
 write_csv(county_week, "data/group_means_rake/contact_by_county_week_trunc72.csv")
 
+# calculate unweighted contact rates for comparison
+county_week_unwtd <- raked_data %>% 
+  group_by(fips, week) %>% 
+  summarise(non_hh_contacts = mean(outside_contacts),
+            samp_size = n())
+write_csv(county_week_unwtd, "data/group_means_rake/contact_by_county_week_trunc72_unwtd.csv")
+
 
 #### AGE ####
 
@@ -244,7 +251,7 @@ raked_data_w_race <- read_csv("data/raking/contact_raking_weights_age_sex_race5_
                                                     state = col_character(),
                                                     state_fips = col_integer())) %>% 
   filter(!is.na(weight)) %>% 
-  filter(week < ymd("2021-05-01") & week > ymd("2020-05-31")) 
+  filter(week < ymd("2021-05-01") & week > ymd("2020-05-31")) %>% 
   filter(outside_contacts <= 72)
 
 ### county means by race group ###

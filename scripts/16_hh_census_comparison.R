@@ -100,7 +100,8 @@ raked_data <- read_csv("data/raking/contact_raking_weights_age_sex_corrected.csv
                                         age_cat_col = col_factor(levels = c("age18to34", "age35to54", 
                                                                             "age55up")))) %>% 
   filter(!is.na(updated_weight)) %>% # remove observations from county-weeks with < 3 responses, <1% of responses
-  filter(week < ymd("2021-05-01"))
+  filter(week < ymd("2021-05-01")) %>% 
+  filter(outside_contacts <= 72)
 
 # group any households 7+
 # when people respond to the survey they are saying number including themselves: num_hh
@@ -174,3 +175,29 @@ map$ggplot_scale <- scale_fill_gradientn(colors=met.brewer("Benedictus"),
 map <- map$render()
 map    
 ggsave("figures/supp/hh-size-ratio-obs-to-census.pdf", height = 5, width = 8)
+
+#### household size versus num household contacts ####
+raked_data <- read_csv("data/raking/contact_raking_weights_age_sex_corrected.csv", 
+                       col_types = cols_only(date = col_date(),
+                                             week = col_date(),
+                                             month = col_date(),
+                                             fips = col_integer(),
+                                             num_hh = col_double(),
+                                             num_hh_contact = col_integer(),
+                                             outside_contacts = col_integer(),
+                                             updated_weight = col_double()))
+raked_data2 <- raked_data %>% 
+  filter(!is.na(updated_weight)) %>% # remove observations from county-weeks with < 3 responses, <1% of responses
+  filter(week < ymd("2021-05-01"))
+
+raked_data3 <- raked_data2 %>% mutate(diff = num_hh - num_hh_contact)
+raked_data3 %>% ggplot(aes(x = diff)) + 
+  geom_histogram(aes(y = stat(count)/sum(count))) + 
+  scale_y_sqrt()
+ggsave("figures/23-09-18/hist-diff-bw-hhcontact-hhsize.pdf", height = 4, width = 6)
+
+raked_data2 %>% slice_sample(n = 1e6) %>% 
+  ggplot(aes(x = num_hh, y = num_hh_contact)) + 
+  geom_point(alpha = 0.5) + 
+  geom_abline(slope = 1, intercept = -1, col = "firebrick")
+ggsave("figures/23-09-18/hhcontact-vs-hhsize-samp.pdf", height = 4, width = 6)

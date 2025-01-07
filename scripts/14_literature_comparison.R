@@ -11,51 +11,50 @@
 
 #### load my estimates ####
 age_estimates <- read_csv("data/output/baseline_contact_by_county_week_by_age.csv",
-                          col_types = "diDDidfiddiiiddfccfddddidddddddddddd")
+                          col_types = "diDDidfidiiididiccidddddddddddddddddddddddddddiddddddddddddddddddd") 
 
 # to get pandemic estimates past feb 2021 need to grab directly from spatiotemporal data 
 pandemic_age <- data.frame()
 for(age_level in c(1, 2, 3, 4)){
-  folder_name <- "age4_72trunc"
+  folder_name <- "age4_72trunc_m1"
   folder_sublevel = paste0("age", age_level)
-  spatiotemporal_fits <- read_csv(paste0("spatiotemporal/", folder_name, "/fitted_predictions_", folder_sublevel, "_update.csv"),
-                                  col_types = "ddiifddiiDccdDccfd") %>% ungroup() %>%
-    mutate(age = age_level) # impute for imputed estimates
+  spatiotemporal_fits <- read_csv(paste0("spatiotemporal/", folder_name, "/fitted_predictions_", folder_sublevel, ".csv"),
+                                  col_types = "ddiifddiiDccDccfd") %>% ungroup() %>%
+    mutate(age = age_level)
   pandemic_age <- pandemic_age %>% bind_rows(spatiotemporal_fits)
 }
 
 
 gender_estimates <- read_csv("data/output/baseline_contact_by_county_week_by_gender.csv",
-                             col_types = "diDDidfiddiiiddfccfddddidddddddddddd")
+                             col_types = "diDDidfidiiididiccidddddddddddddddddddddddddddiddddddddddddddddddd")
 
 pandemic_gender <- data.frame()
 for(gender_level in c(1, 2)){
-  folder_name <- "gender_72trunc"
+  folder_name <- "gender_72trunc_m1"
   folder_sublevel = paste0("gender", gender_level)
-  spatiotemporal_fits <- read_csv(paste0("spatiotemporal/", folder_name, "/fitted_predictions_", folder_sublevel, "_update.csv"),
-                                  col_types = "ddiifddiiDccdDccfd") %>% ungroup() %>%
-    mutate(gender = gender_level) # impute for imputed estimates
+  spatiotemporal_fits <- read_csv(paste0("spatiotemporal/", folder_name, "/fitted_predictions_", folder_sublevel, ".csv"),
+                                  col_types = "ddiifddiiDccDccfd") %>% ungroup() %>%
+    mutate(gender = gender_level)
   pandemic_gender <- pandemic_gender %>% bind_rows(spatiotemporal_fits)
 }
 
 race_estimates <- read_csv("data/output/baseline_contact_by_state_week_by_race.csv",
-                           col_types = "dcDDidfiiiddiddddddddddddddcicd")
+                           col_types = "dcDDidfiiididddddddddddddddddddddddddcicd")
 
 pandemic_race <- data.frame()
 for(race_level in c("asian", "black", "hispanic", "other", "white")){
-  folder_name <- "ethrace_72trunc_region4"
+  folder_name <- "ethrace_72trunc_region4_m1"
   folder_sublevel <- race_level
   spatiotemporal_fits <- read_csv(paste0("spatiotemporal/", folder_name, "/fitted_predictions_", folder_sublevel, ".csv"),
-                                  col_types = "ddciDfddiicfcD") %>% ungroup() %>%
+                                  col_types = "ddciDfddiicfcD") %>%
     mutate(race_cat_col = race_level) # impute for imputed estimates
   pandemic_race <- pandemic_race %>% bind_rows(spatiotemporal_fits)
 }
 
-spatiotemporal_fits <- read_csv("spatiotemporal/normal_gamma2_72trunc/fitted_predictions.csv",
+spatiotemporal_fits <- read_csv("spatiotemporal/normal_gamma2_72trunc_m1/fitted_predictions.csv",
                                 col_types = "ddiiddddddddiiDccDccf") %>% ungroup()
 
 spatiotemporal_fits$ur_code <- factor(spatiotemporal_fits$ur_code, levels = c("1", "2", "3", "4", "5", "6"))
-
 
 #### POLYMOD COMPARISON ####
 
@@ -263,7 +262,7 @@ ctis_nelson_age_2020 <- pandemic_age %>% select(fips, week, age, fit) %>%
                              age == 4 ~ "75+"),
          compat_age_fct = ifelse(age_fct == "65-74", "65+",
                                  ifelse(age_fct == "75+", "65+", age_fct))) %>% 
-  filter(week %within% interval(ymd("2020-09-01"), ymd("2020-12-31"))) %>% 
+  filter(week %within% interval(ymd("2020-08-01"), ymd("2020-12-31"))) %>% 
   mutate(year = year(floor_date(week, unit = "year"))) %>% 
   group_by(fips, compat_age_fct, year) %>% 
   summarise(mean_contact = mean(fit)) 
@@ -308,7 +307,7 @@ ggsave("figures/supp/validation_nelson_age.pdf", height = 4, width = 6)
 
 ctis_nelson_gender_2020 <- pandemic_gender %>% select(fips, week, gender, fit) %>% 
   mutate(gender_cat = ifelse(gender == 1, "men", "women")) %>% 
-  filter(week %within% interval(ymd("2020-09-01"), ymd("2020-12-31"))) %>% 
+  filter(week %within% interval(ymd("2020-08-01"), ymd("2020-12-31"))) %>% 
   mutate(year = year(floor_date(week, unit = "year"))) %>% 
   group_by(fips, gender_cat, year) %>% 
   summarise(mean_contact = mean(fit)) 
@@ -937,3 +936,49 @@ map -> my_map
 library(ggpubr)
 ggarrange(my_map, breen_map, ncol = 2, labels = "AUTO")
 ggsave("figures/supp/validation-w-breen.pdf", height = 5, width = 16)
+
+#### Crawford et al 2022 ####
+crawford <- read_csv("data/validation/contact_data_dryad.csv")
+summary(crawford)
+# from: https://data.ct.gov/Local-Government/Connecticut-Towns-Crosswalk-with-Tax-Codes-and-FIP/5hqs-h5c3/data
+ct_cross <- read_csv("data/validation/connecticut_towns_crosswalk.csv") %>% 
+  mutate(county_fips = as.integer(substr(`FIPS Code`, 1, 5)))
+head(ct_cross)
+
+crawford_county <- crawford %>% left_join(ct_cross, by = c("town" = "Town Name")) %>% 
+  # categorizing norwich as new london
+  mutate(county_fips = ifelse(town == "Norwich", 9011, county_fips)) %>% 
+  mutate(week = floor_date(date, unit = "week")) %>% 
+  group_by(county_fips, week) %>% 
+  summarise(mean_contact = mean(contact_rate)) %>% 
+  ungroup() %>% 
+  left_join(spatiotemporal_fits %>% select(fips, week, fit), by = c("county_fips" = "fips", "week")) %>% 
+  filter(! is.na(fit)) %>% 
+  filter(week >= ymd("2020-06-01"))
+
+crawford_county %>% ggplot(aes(x = mean_contact, y = fit)) + 
+  geom_point() + 
+  geom_abline()
+
+crawford_county %>% 
+  rename(`Crawford et al. 2022` = mean_contact,
+         CTIS = fit) %>% 
+  pivot_longer(cols = c(`Crawford et al. 2022`, CTIS),
+               names_to = "study", values_to = "contact") %>% 
+  ggplot(aes(x = week, y = contact, col = study)) + 
+  geom_point() + 
+  geom_line(aes(group = interaction(study, county_fips))) +
+  facet_wrap(~county_fips, nrow = 2) +
+  scale_color_met_d(name = "Isfahan2", direction = 1) +
+  scale_x_date(breaks = seq(as.Date("2020-06-01"), as.Date("2021-01-31"),
+                            by = "3 month"),
+               labels = c("Jun 2020", "Oct", "Jan 2021"),
+               minor_breaks = "1 month") +
+  theme_bw() +
+  theme(legend.position = "inside",
+        legend.position.inside = c(0.87, 0.35),
+        legend.background = element_rect(fill = "transparent", color = NA),
+        legend.text = element_text(size = 14),
+        legend.title = element_text(size = 16)) +
+  labs(y = "Mean contact")
+ggsave("figures/supp/validation-crawford.pdf", height = 5, width = 10)

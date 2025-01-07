@@ -40,7 +40,7 @@ hhs_regions <- read_csv("data/input/HHS_regions.csv", col_types = "if") %>%
 #### RUN THE MAIN MODEL ####
 # ------------------------- #
 
-folder_name <- "normal_gamma2_72trunc"
+folder_name <- "normal_gamma2_72trunc_m1"
 
 to_model <- county_week %>% ungroup() %>% 
   mutate(week_rank = as.integer(as.numeric(week)/7)) %>% # create a numeric dummy for week to feed to mgcv
@@ -70,6 +70,7 @@ for(state.fit in states){
   if (state.fit == 'DC'){
     # bam is gam for very large datasets
     fit <- bam(non_hh_contacts ~ 1 + s(week_rank, bs = 'cs', k = 10), # 1 not necessary, cs = shrinkage version of cubic regression spline
+               family = "gaussian",
                data = df.fit, # shrinkage version penalizes linear/constant splines as well to allow terms to be dropped from model effectively
                weights = samp_size, # weighted by number of observations, weight of 2 effectively means made same obs twice
                method = 'fREML', # fast REML default with bam since lots of data
@@ -83,8 +84,9 @@ for(state.fit in states){
       # num counties within state, but still just fitting one model per state, but fips is a covariate
       # model might be separate for each state, but still individual predictions for each fips
       
-      fit <- bam(non_hh_contacts ~ s(week_rank, k = 30, m = 2) + s(week_rank, fips, bs = 'fs', k = 15, m = 2), # factor-smooth interaction, 
+      fit <- bam(non_hh_contacts ~ s(week_rank, k = 30, m = 2) + s(week_rank, fips, bs = 'fs', k = 15, m = 1), # factor-smooth interaction, 
                  #fips is factor, so diff spline per fips (this approach closer to random effects than if did by factor level, SHARED SMOOTHNESS PARAM)
+                 family = "gaussian",
                  data = df.fit,
                  weights = samp_size,
                  method = 'fREML',
@@ -95,8 +97,9 @@ for(state.fit in states){
       # discrete is only difference maybe just cause so many factors have to help speed up
     }else{
       # fit the model
-      fit <- bam(non_hh_contacts ~ s(week_rank, k = 30, m = 2) + s(week_rank, fips, bs = 'fs', k = 15, m = 2),
-                 data = df.fit, # m = 2 means order of penalty, 2 is for normal cubic spline penalty with 2nd derivatives
+      fit <- bam(non_hh_contacts ~ s(week_rank, k = 30, m = 2) + s(week_rank, fips, bs = 'fs', k = 15, m = 1),
+                 family = "gaussian",
+                 data = df.fit, # m is order of penalty, 2 is for normal cubic spline penalty with 2nd derivatives
                  weights = samp_size,
                  method = 'fREML', # fast reml
                  gamma = 2, # increases penalty to force smoother model
@@ -147,6 +150,38 @@ for(state.fit in states){
 }
 
 closeAllConnections()
+
+# concurvity
+my_log <- file(paste0("data/output/", folder_name, "/checking_model_concurvity.txt")) # File name of output log
+sink(my_log, append = TRUE, type = "output") # Writing console output to log file
+sink(my_log, append = TRUE, type = "message")
+for(state.fit in states){
+  print(state.fit)
+  model <- readRDS(paste0("spatiotemporal/", folder_name, "/state_fits/posterior_draws-contact_model_fit-", state.fit, ".rds"))
+  print(concurvity(model, full = T))
+  #print(k.check(model))
+}
+
+closeAllConnections()
+
+par(mfrow = c(1, 1))
+# performance, takes awhile
+r2_df <- data.frame()
+for(state.fit in states){
+  print(state.fit)
+  model <- readRDS(paste0("spatiotemporal/", folder_name, "/state_fits/posterior_draws-contact_model_fit-", state.fit, ".rds"))
+  print("got model")
+  r2_df <- r2_df %>% rbind(data.frame(state = state.fit, r2 = summary(model)$r.sq,
+                                      freml_score = summary(model)$sp.criterion[[1]]))
+}
+r2_df %>% ggplot(aes(x = r2)) +
+  geom_histogram(binwidth = 0.1, col = "white") + #, boundary = 0.5) +
+  labs(x = "Adjusted R^2", y = "Number of state models") +
+  theme_bw() +
+  scale_x_continuous(breaks = seq(0, 1, by = 0.1)) +
+  scale_y_continuous(breaks = seq(0, 12, by = 2)) +
+  geom_vline(xintercept = mean(r2_df$r2), col = "black", lty = "dashed")
+ggsave("figures/supp/adj-r2-normal-gamma2-72trunc-m1.pdf", height = 4, width = 5)
 
 
 # -------------------------- #
@@ -342,7 +377,7 @@ for (state.fit in states){
   print(state.fit) # paste gamma_ in front of posterior below
   predictions <- read_csv(glue('data/output/', folder_name, '/state_fits/posterior_draws-contact_no_hh-',
                                state.fit, '.csv'),
-                          col_types = "ddiiddddiiDcc")
+                          col_types = "ddiiddddddddiiDcc")
   all_predictions <- all_predictions %>% bind_rows(predictions)
 }
 
