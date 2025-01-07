@@ -46,11 +46,6 @@ raked_data <- raked_data %>%
                                     age == 6 ~ 3,
                                     age == 7 ~ 4)))
 # nonconvergent responses are included
-# 13,372,301 responses
-
-# # distribution of raking weights
-# raked_data %>% ggplot(aes(x = updated_weight)) +
-#   geom_histogram(col = NA)
 
 #### interquartile mean ####
 # iqr_obs <- raked_data %>% 
