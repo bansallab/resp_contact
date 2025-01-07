@@ -25,8 +25,8 @@ Reference files that may be required to run the code, including fips and state c
 
 Intermediate data files with aggregated raw data are provided so that the GAMs and linear regression models can be reproduced.
 * `group_means_rake` provides raw weighted county-week means of contact data truncated at 72 contacts aggregated and disaggregated by age, gender, race, and setting
-* `output\mobility_19_20_fall_ratio_new_norm.csv` contains ratios of Safegraph Social Distancing mobility metrics for the fall of 2019 and 2020
-* `output\normal_gamma2_72trunc_m1\fitted_predictions.csv` provides contact estimates as a result of spatiotemporal GAMs for the main text analysis
+* `output/mobility_19_20_fall_ratio_new_norm.csv` contains ratios of Safegraph Social Distancing mobility metrics for the fall of 2019 and 2020
+* `output/normal_gamma2_72trunc_m1/fitted_predictions.csv` provides contact estimates as a result of spatiotemporal GAMs for the main text analysis
 
 ## Code (`scripts/`)
 Scripts to clean data, rake and aggregate survey responses, run spatiotemporal GAM regression models, baseline linear regression models, and reproduce figures. Scripts for analyzing individual responses are provided for reproducibility but will not run without the original individual-level data (see Individual Data section below). File names briefly describe the purpose of each script. Main figures 1 and 2 are produced by `09_baseline_regression.R`. 
