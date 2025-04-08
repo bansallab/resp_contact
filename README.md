@@ -22,6 +22,9 @@ Reference files that may be required to run the code, including fips and state c
 * `nyt-us-counties-rolling-avg-2020.csv`, `nyt-us-counties-rolling-avg-2021.csv`,  `nyt-us-national-rolling-avg.csv`, `nyt-us-states-rolling-avg.csv` contain COVID-19 case incidence data from the New York Times at different spatial scales (from https://github.com/nytimes/covid-19-data/blob/master/rolling-averages/us.csv)
 * `OxCGRT_compact_subnational_v1.csv` contains Oxford Stringency Index data for each state (from https://github.com/OxCGRT/covid-policy-dataset/tree/main/data)
 * `state_and_county_fips_master.csv` contains each county's corresponding state and name
+* `2020_US_Region_Mobility_Report.csv`, `2021_US_Region_Mobility_Report.csv`, `2022_US_Region_Mobility_Report.csv` contain Google mobility data
+* `Trips_by_Distance_20241202.csv` is too large to upload to Github but can be downloaded from the Bureau of Transportation Statistics: https://data.bts.gov/Research-and-Statistics/Daily-Mobility-Statistics/w96p-f2qv/about_data
+* 
 
 Intermediate data files with aggregated raw data are provided so that the GAMs and linear regression models can be reproduced.
 * `group_means_rake` provides raw weighted county-week means of contact data truncated at 72 contacts aggregated and disaggregated by age, gender, race, and setting

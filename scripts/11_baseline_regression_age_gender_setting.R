@@ -438,5 +438,15 @@ for(age_level in c(1, 2, 3, 4)){
 
 #write_csv(all_vifs, paste0("data/output/baseline_vifs_", GROUP, ".csv"))
 
-write_csv(all_estimates, paste0("data/output/baseline_contact_by_county_week_by_", GROUP, ".csv"))
+write_csv(all_estimates, paste0("estimates/baseline_contact_by_county_week_by_", GROUP, ".csv"))
 
+### reduced columns for setting file ###
+setting_estimates_reduced <- all_estimates %>% 
+  dplyr::select(contact_fit, fips, week, samp_size, non_hh_contacts, setting, 
+                national_cases_roll4, ur_code, state, 
+                national_cases_roll4_slope, percent_vaxxed_slope, 
+                sum_county_measures_shift_slope, StringencyIndex_Average_roll3_shiftmin_slope,
+                `national_cases_roll4:percent_vaxxed_slope`, residual, pred_lm,
+                baseline, phi, scale_baseline, hhs_region, sum_county_measures_shift,
+                StringencyIndex_Average_roll3_shiftmin, percent_vaxxed, intercept)
+write_csv(setting_estimates_reduced, "estimates/baseline_contact_by_county_week_by_setting.csv")
