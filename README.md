@@ -11,7 +11,8 @@ Columns of interest:
 - `scale_baseline` has inferred baseline estimates of mean contact 
 
 ## Data (`data/`)
-Reference files that may be required to run the code, including fips and state crosswalk files, urban/rural classifications, etc. are in `data/input/`.
+Reference files that may be required to run the code, including fips and state crosswalk files, urban/rural classifications, etc. are in `data/input/`. Files to reproduce supplementary figures are not provided here but can be found using references in the article. 
+
 * `Average_Household_Size_and_Population_Density_-_County.csv` contains population density for each fips code (from https://covid19.census.gov/datasets/USCensus::average-household-size-and-population-density-county/explore?location=4.945434%2C0.315550%2C1.99&showTable=true)
 * `census_regions.csv` delineates which states are in which census regions (from https://github.com/cphalpert/census-regions/blob/master/us%20census%20bureau%20regions%20and%20divisions.csv)
 * `co-est2021-alldata.csv` contains population estimates for each county (from https://www2.census.gov/programs-surveys/popest/technical-documentation/file-layouts/2020-2021/CO-EST2021-ALLDATA.pdf)
@@ -22,9 +23,6 @@ Reference files that may be required to run the code, including fips and state c
 * `nyt-us-counties-rolling-avg-2020.csv`, `nyt-us-counties-rolling-avg-2021.csv`,  `nyt-us-national-rolling-avg.csv`, `nyt-us-states-rolling-avg.csv` contain COVID-19 case incidence data from the New York Times at different spatial scales (from https://github.com/nytimes/covid-19-data/blob/master/rolling-averages/us.csv)
 * `OxCGRT_compact_subnational_v1.csv` contains Oxford Stringency Index data for each state (from https://github.com/OxCGRT/covid-policy-dataset/tree/main/data)
 * `state_and_county_fips_master.csv` contains each county's corresponding state and name
-* `2020_US_Region_Mobility_Report.csv`, `2021_US_Region_Mobility_Report.csv`, `2022_US_Region_Mobility_Report.csv` contain Google mobility data
-* `Trips_by_Distance_20241202.csv` is too large to upload to Github but can be downloaded from the Bureau of Transportation Statistics: https://data.bts.gov/Research-and-Statistics/Daily-Mobility-Statistics/w96p-f2qv/about_data
-* 
 
 Intermediate data files with aggregated raw data are provided so that the GAMs and linear regression models can be reproduced.
 * `group_means_rake` provides raw weighted county-week means of contact data truncated at 72 contacts aggregated and disaggregated by age, gender, race, and setting
