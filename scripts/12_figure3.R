@@ -41,7 +41,7 @@ df.fips <- read_csv('data/input/state_and_county_fips_master.csv') %>%
 
 #### age estimates ####
 
-age_estimates <- read_csv("data/output/baseline_contact_by_county_week_by_age.csv",
+age_estimates <- read_csv("estimates/baseline_contact_by_county_week_by_age.csv",
                           col_types = "diDDidfidiiididiccidddddddddddddddddddddddddddiddddddddddddddddddd")
 
 # map of counties we used
@@ -54,10 +54,6 @@ amap$set_num_colors(1)
 amap$ggplot_scale <- scale_fill_gradientn(colors = met.brewer("Tam"))
 amap <- amap$render()
 print(amap)
-
-foo <- age_estimates %>% left_join(urb_rur_codes) %>% 
-  group_by(fips, ur_code) %>% 
-  summarise()
 
 # check age specific coefficient differences
 age_spec <- age_estimates %>% dplyr::select(fips, age, intercept, contains("slope")) %>% 
@@ -88,6 +84,7 @@ agg_age_comp <- age_estimates %>%
   group_by(fips, state, hhs_region, age, setting) %>% 
   summarise(mean_contact = mean(num_contacts))
 
+truncated_colors <- met.brewer("Tam", n = 6)[1:4]
 agg_age_comp$setting <- factor(agg_age_comp$setting, levels = c("contact_fit", "baseline", "scale_baseline"))
 levels(agg_age_comp$setting) <- c("pandemic", "disease = 0", "baseline") #CHECK THAT LEVELS ARE CORRECT
 (agg_age_comp %>% 
@@ -102,7 +99,7 @@ levels(agg_age_comp$setting) <- c("pandemic", "disease = 0", "baseline") #CHECK 
     facet_wrap(~setting) +
     theme_bw() + 
     labs(y = "Mean contact", x = "Age") + 
-    scale_color_met_d(name = "Tam") +
+    scale_color_manual(values = truncated_colors) +
     #ylim(0, 20) +
     theme(legend.position = "none",
           axis.text = element_text(size = 14),
@@ -110,7 +107,7 @@ levels(agg_age_comp$setting) <- c("pandemic", "disease = 0", "baseline") #CHECK 
           strip.text = element_text(size = 16)) -> age_pandemic)
 
 #### gender results ####
-gender_estimates <- read_csv("data/output/baseline_contact_by_county_week_by_gender.csv",
+gender_estimates <- read_csv("estimates/baseline_contact_by_county_week_by_gender.csv",
                              col_types = "diDDidfidiiididiccidddddddddddddddddddddddddddiddddddddddddddddddd")
 
 # map of counties we used
@@ -123,10 +120,6 @@ gmap$set_num_colors(1)
 gmap$ggplot_scale <- scale_fill_gradientn(colors = met.brewer("Tam"))
 gmap <- gmap$render()
 print(gmap)
-
-foo <- gender_estimates %>% left_join(urb_rur_codes) %>% 
-  group_by(fips, ur_code) %>% 
-  summarise()
 
 agg_gender_comp <- gender_estimates %>% 
   pivot_longer(cols = c(contact_fit, baseline, scale_baseline),
@@ -175,8 +168,8 @@ gender_spec <- gender_estimates %>%
 
 
 #### setting estimates ####
-setting_estimates <- read_csv("data/output/baseline_contact_by_county_week_by_setting.csv",
-                              col_types = "diDDidfiddiiiddfccfddddidddddddddddd")
+setting_estimates <- read_csv("estimates/baseline_contact_by_county_week_by_setting.csv",
+                              col_types = "diDidfdicddddddddddidddd")
 
 agg_setting_comp <- setting_estimates %>% 
   pivot_longer(cols = c(contact_fit, baseline, scale_baseline),
@@ -228,7 +221,7 @@ setting_spec$setting <- factor(setting_spec$setting, levels = c("other", "social
 
 #### add google mobility data #### 
 # should I just do average 2020 difference since they don't give us 2019 and there's no reason to use time?
-google_mob_data_read <- read_csv("data/input/google_mobility_data/2020_US_Region_Mobility_Report.csv") %>% 
+google_mob_data_read <- read_csv("data/input/2020_US_Region_Mobility_Report.csv") %>% 
   rename(fips = census_fips_code) %>% 
   dplyr::select(-c(country_region_code, country_region, sub_region_1, sub_region_2, 
                    iso_3166_2_code, place_id, metro_area)) %>% 
@@ -292,19 +285,19 @@ ggsave("figures/supp/google-vs-safegraph-work-comparison.pdf", height = 4, width
 #### google mobility data 2022 ####
 # I want to look at google workplace signal at end of 2022 and to see if there is difference
 #   from mobility in 2019/pre 2020 pandemic
-google_mob_data_2020 <- read_csv("data/input/google_mobility_data/2020_US_Region_Mobility_Report.csv") %>% 
+google_mob_data_2020 <- read_csv("data/input/2020_US_Region_Mobility_Report.csv") %>% 
   rename(fips = census_fips_code) %>% 
   dplyr::select(-c(country_region_code, country_region, sub_region_1, sub_region_2, 
                    iso_3166_2_code, place_id, metro_area)) %>% 
   filter(!is.na(fips)) %>% 
   mutate(fips = as.integer(fips))
-google_mob_data_2021 <- read_csv("data/input/google_mobility_data/2021_US_Region_Mobility_Report.csv") %>% 
+google_mob_data_2021 <- read_csv("data/input/2021_US_Region_Mobility_Report.csv") %>% 
   rename(fips = census_fips_code) %>% 
   dplyr::select(-c(country_region_code, country_region, sub_region_1, sub_region_2, 
                    iso_3166_2_code, place_id, metro_area)) %>% 
   filter(!is.na(fips)) %>% 
   mutate(fips = as.integer(fips))
-google_mob_data_2022 <- read_csv("data/input/google_mobility_data/2022_US_Region_Mobility_Report.csv") %>% 
+google_mob_data_2022 <- read_csv("data/input/2022_US_Region_Mobility_Report.csv") %>% 
   rename(fips = census_fips_code) %>% 
   dplyr::select(-c(country_region_code, country_region, sub_region_1, sub_region_2, 
                    iso_3166_2_code, place_id, metro_area)) %>% 
@@ -335,6 +328,7 @@ google_mob_data_2022_weekly %>%
 # look at BTS data, from: 
 # https://www.bts.gov/daily-travel
 # https://data.bts.gov/Research-and-Statistics/Trips-by-Distance/w96p-f2qv/about_data
+# this file is too big to upload to github, but can be downloaded at link above
 bts <- read_csv("data/input/Trips_by_Distance_20241202.csv") 
 
 bts_county <- bts %>% 
@@ -399,7 +393,7 @@ ggsave("figures/supp/google-bts-comp.pdf", height = 8, width = 10)
 # ------------------------------ #
 # read in race and urban/rural data here
 #### race data ####
-race_estimates <- read_csv("data/output/baseline_contact_by_state_week_by_race.csv",
+race_estimates <- read_csv("estimates/baseline_contact_by_state_week_by_race.csv",
                            col_types = "dcDDidfiiididddddddddddddddddddddddddcicd")
 
 agg_race_comp <- race_estimates %>% 

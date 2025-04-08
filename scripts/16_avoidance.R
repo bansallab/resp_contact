@@ -8,6 +8,8 @@
 }
 
 
+df.fips <- read_csv('data/input/state_and_county_fips_master.csv')
+
 # compare time series of avoid contact with contact rates
 # will have to convert avoid contact to proportion
 # first I want to see how behavior varies by avoidant group like I did for worry
@@ -244,13 +246,18 @@ avoid_prop_roll_gam <- raked_data %>%
   mutate(metric = ifelse(metric == "z_contact", "Mean contact", "Prop. avoiding contact")) %>% 
   mutate(grp = ifelse(week < ymd("2020-09-08"), 1, 2))
 
+sample_fips <- c(4003, 6081, 8101, 10003, 12061, 24047, 34003, 35049, 40051,
+                 45063, 51047, 53035)
 avoid_prop_roll_gam %>% 
+  left_join(df.fips) %>% 
+  mutate(name_short = gsub(" County", "", name),
+         county_name = paste0(name_short, ", ", state)) %>% 
   filter(fips %in% sample_fips) %>% 
   filter(fips != 27013) %>% 
   ggplot(aes(x = week, y = zscore, col = metric)) + 
   geom_point(size = 1) + 
   geom_line(aes(group = interaction(metric, grp))) +
-  facet_wrap(~fips) +
+  facet_wrap(~county_name) +
   scale_x_date(breaks = seq(as.Date("2020-07-01"), as.Date("2021-04-30"),
                             by = "3 month"),
                labels = c("Jul 20", "Oct", "Jan 21", "Apr"),
@@ -328,9 +335,6 @@ nyt_national_roll <- read_csv("data/input/nyt-us-national-rolling-avg.csv",
   ungroup() %>% 
   mutate(national_cases_roll4 = zoo::rollmean(national_cases, k = 4, fill = NA, align = "right")) %>% 
   ungroup()
-
-df.fips <- read_csv('data/input/state_and_county_fips_master.csv')
-
 # could have used predict with the model, but now that I've extracted these that feels hard
 
 new_covars <- new_avoid %>% 
@@ -366,11 +370,13 @@ sample_fips <- sample(unique(non6_fips), 16)
 
 prediction_df_cor %>% 
   left_join(urb_rur_codes) %>% 
+  mutate(name_short = gsub(" County", "", name),
+         county_name = paste0(name_short, ", ", state)) %>% 
   filter(fips %in% sample_fips) %>% 
   mutate(metric = ifelse(metric == "contact", "Mean contact", "Prop. avoiding contact")) %>% 
   ggplot(aes(x = week, y = zscore, group = interaction(fips, metric), col = metric)) +
   geom_line() + 
-  facet_wrap(~fips) +
+  facet_wrap(~county_name) +
   scale_x_date(breaks = seq(as.Date("2021-05-01"), as.Date("2022-06-19"),
                             by = "3 month"),
                labels = c("May 21", "Aug", "Nov", "Feb 22", "May"),

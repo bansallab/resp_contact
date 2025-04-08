@@ -55,10 +55,13 @@ spatiotemporal_fits <- read_csv("data/output/normal_gamma2_72trunc_m1/fitted_pre
 #   }
 # }
 # 
-# non6_fips <- spatiotemporal_fits %>% left_join(urb_rur_codes) %>% filter(ur_code != 6) %>% 
+# non6_fips <- spatiotemporal_fits %>% left_join(urb_rur_codes) %>% filter(ur_code != 6) %>%
+#   filter(! is.na(non_hh_contacts)) %>%  # counties that have projected contacts but no data
 #   pull(fips) %>% unique() %>% sample(36)
-# spatiotemporal_fits %>% 
-#   filter(fips %in% non6_fips) %>% 
+# spatiotemporal_fits %>%
+#   filter(fips %in% non6_fips) %>%
+#   mutate(name_short = gsub(" County", "", name),
+#          county_name = paste0(name_short, ", ", state)) %>% 
 #   filter(week >= ymd("2020-06-01")) %>% 
 #   ggplot(aes(x = week, y = non_hh_contacts)) + 
 #   geom_line(aes(group = fips)) +
@@ -528,6 +531,9 @@ baseline_models_function <- function(model_formula, combine_data,
   
   TICK_START = ifelse(startdate == "2020-06-01", "2020-07-01", "2020-10-01")
   (plot_df_all %>%
+      left_join(df.fips %>% mutate(fips = as.factor(fips))) %>% 
+      mutate(name_short = gsub(" County", "", name),
+             county_name = paste0(name_short, ", ", state)) %>% 
       filter(fips %in% sample_fips) %>%
       ggplot() +
       geom_line(aes(x = week, y = contact,
@@ -544,7 +550,7 @@ baseline_models_function <- function(model_formula, combine_data,
       labs(y = "Mean contacts") +
       theme(legend.title = element_blank(), #text(size = 14),
             legend.position = "none") +
-      facet_wrap(~fips, nrow = 6) +
+      facet_wrap(~county_name, nrow = 6) +
       scale_y_continuous(breaks = breaks_pretty(n = 4)) +
       scale_color_manual(values = c("#3F3E66", "#1E7D79")) +
       scale_fill_manual(values = c("#3F3E66", "#1E7D79"))  -> all_baseline)
@@ -946,6 +952,8 @@ main_data %>% ggplot(aes(x = pred_lm, y = residual)) +
   labs(x = "fitted")
 ggsave("figures/supp/regression-diags-resid-vs-fit.pdf", height = 5, width = 8)
 main_data %>% 
+  mutate(name_short = gsub(" County", "", name),
+         county_name = paste0(name_short, ", ", state)) %>% 
   filter(fips %in% sample(unique(main_data$fips), 36)) %>% 
   ggplot(aes(x = pred_lm, y = residual)) + 
   geom_point(alpha = 1, col = "royalblue") + 
@@ -965,9 +973,20 @@ sample_fips <- sample(unique(main_data$fips), 16)
 model_data_sub <- main_data %>% filter(fips %in% sample_fips)
 no_pooling_sub <- lmList(model_list[[1]], model_data_sub)
 
+fips_labels <- names(no_pooling_sub) %>% 
+  as_tibble() %>% mutate(fips = as.integer(value)) %>% 
+  left_join(df.fips) %>% 
+  mutate(name_short = gsub(" County", "", name),
+         county_name = paste0(name_short, ", ", state)) %>% 
+  pull(county_name)
+
 pdf("figures/supp/regression-diags-qq-sample.pdf", height = 10, width = 16)
 par(mfrow = c(4, 4))
-invisible(lapply(no_pooling_sub,plot,which=2))
+invisible(
+  lapply(seq_along(no_pooling_sub), function(i) {
+    plot(no_pooling_sub[[i]], which = 2, main = fips_labels[i])
+  })
+)
 dev.off()
 
 #### model assumptions plots ####
@@ -981,13 +1000,15 @@ combine_data %>% ggplot(aes(x = national_cases_roll4, y = contact_fit)) +
 ggsave("figures/supp/disease-contact-correlation-nat.pdf", height = 5, width = 8)
 
 combine_data %>% 
+  mutate(name_short = gsub(" County", "", name),
+         county_name = paste0(name_short, ", ", state)) %>% 
   filter(fips %in% sample(unique(combine_data$fips), 25)) %>% 
   ggplot(aes(x = county_cases_roll4, y = contact_fit)) +
   geom_point() +
   geom_smooth(method = "lm") +
   theme_bw() +
   labs(y = "Contact", x = "County incident cases\n(4 week rolling average)") +
-  facet_wrap(~fips, scales = "free")
+  facet_wrap(~county_name, scales = "free")
 ggsave("figures/supp/disease-contact-correlation-sample-counties.pdf", height = 8, width = 14)
 
 

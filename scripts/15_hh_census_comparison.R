@@ -135,8 +135,12 @@ samp_size <- combine %>% filter(fips %in% foi) %>%
 #foi <- sample(unique(combine$fips), 25)
 
 fills <- c("CTIS" = "royalblue", "ACS" = "orange")
+df.fips <- read_csv('data/input/state_and_county_fips_master.csv')
 combine %>%  
   filter(fips %in% foi) %>% 
+  left_join(df.fips) %>% 
+  mutate(name_short = gsub(" County", "", name),
+         county_name = paste0(name_short, ", ", state)) %>% 
   ggplot(aes(x = hh_size_num)) +
   geom_bar(aes(y = rewt_prop, fill = "CTIS"), stat = "identity", alpha = 0.5, col = NA) +
   geom_bar(aes(y = prop_hh, fill = "ACS"), stat = "identity", alpha = 0.5, col = NA) +

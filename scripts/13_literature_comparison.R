@@ -831,6 +831,7 @@ wtd_st_mus <- all_data_agg %>%
   left_join(agg_to_state) %>% 
   group_by(state) %>% 
   summarise(mean_contact = weighted.mean(total_contact, prop)) %>% 
+  ungroup() %>% 
   left_join(state.regions, by = c("state" = "abb")) %>% 
   mutate(rel_mean_contact = mean_contact/mean(mean_contact))
 
@@ -945,6 +946,8 @@ ct_cross <- read_csv("data/validation/connecticut_towns_crosswalk.csv") %>%
   mutate(county_fips = as.integer(substr(`FIPS Code`, 1, 5)))
 head(ct_cross)
 
+df.fips <- read_csv('data/input/state_and_county_fips_master.csv')
+
 crawford_county <- crawford %>% left_join(ct_cross, by = c("town" = "Town Name")) %>% 
   # categorizing norwich as new london
   mutate(county_fips = ifelse(town == "Norwich", 9011, county_fips)) %>% 
@@ -954,7 +957,10 @@ crawford_county <- crawford %>% left_join(ct_cross, by = c("town" = "Town Name")
   ungroup() %>% 
   left_join(spatiotemporal_fits %>% select(fips, week, fit), by = c("county_fips" = "fips", "week")) %>% 
   filter(! is.na(fit)) %>% 
-  filter(week >= ymd("2020-06-01"))
+  filter(week >= ymd("2020-06-01")) %>% 
+  left_join(df.fips, by = c("county_fips" = "fips")) %>% 
+  mutate(name_short = gsub(" County", "", name),
+         county_name = paste0(name_short, ", ", state))
 
 crawford_county %>% ggplot(aes(x = mean_contact, y = fit)) + 
   geom_point() + 
@@ -968,7 +974,7 @@ crawford_county %>%
   ggplot(aes(x = week, y = contact, col = study)) + 
   geom_point() + 
   geom_line(aes(group = interaction(study, county_fips))) +
-  facet_wrap(~county_fips, nrow = 2) +
+  facet_wrap(~county_name, nrow = 2) +
   scale_color_met_d(name = "Isfahan2", direction = 1) +
   scale_x_date(breaks = seq(as.Date("2020-06-01"), as.Date("2021-01-31"),
                             by = "3 month"),
