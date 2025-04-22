@@ -65,7 +65,7 @@ spatiotemporal_fits <- read_csv("data/output/normal_gamma2_72trunc_m1/fitted_pre
 #   filter(week >= ymd("2020-06-01")) %>% 
 #   ggplot(aes(x = week, y = non_hh_contacts)) + 
 #   geom_line(aes(group = fips)) +
-#   facet_wrap(~fips, scale = "free_y") +
+#   facet_wrap(~county_name, scale = "free_y") +
 #   labs(y = "Raw mean contact") +
 #   scale_y_continuous(breaks = integer_breaks()) +
 #   scale_x_date(breaks = seq(as.Date("2020-06-01"), as.Date("2021-04-30"),
@@ -960,7 +960,7 @@ main_data %>%
   geom_hline(yintercept = 0) +
   theme_bw() +
   labs(x = "fitted") +
-  facet_wrap(~fips)
+  facet_wrap(~county_name)
 ggsave("figures/supp/regression-diags-resid-vs-fit-sample.pdf", height = 10, width = 16)
 main_data %>% ggplot(aes(x = state_cases_roll4, y = residual)) + 
   geom_point(alpha = 0.05, col = "royalblue") + 
