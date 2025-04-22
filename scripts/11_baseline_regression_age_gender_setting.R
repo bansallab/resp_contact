@@ -379,10 +379,6 @@ for(age_level in c(1, 2, 3, 4)){
   ##### MODEL #####
   #---------------#
   
-  #---------------#
-  ##### MODEL #####
-  #---------------#
-  
   county_nat_model <- lmList(
     contact_fit ~ 1 + national_cases_roll4 * percent_vaxxed + sum_county_measures_shift + StringencyIndex_Average_roll3_shiftmin | fips, 
     combine_data

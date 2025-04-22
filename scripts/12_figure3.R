@@ -168,8 +168,18 @@ gender_spec <- gender_estimates %>%
 
 
 #### setting estimates ####
-setting_estimates <- read_csv("estimates/baseline_contact_by_county_week_by_setting.csv",
-                              col_types = "diDidfdicddddddddddidddd")
+setting_estimates <- read_csv("data/output/baseline_contact_by_county_week_by_setting_full.csv",
+                              # the file without full has fewer columns so it can fit on github
+                              col_types = "diDDidfidiiididiccidddddddddddddddddddddddddddiddddddddddddddddddd")
+
+setting_estimates_reduced <- setting_estimates %>% 
+  dplyr::select(contact_fit, fips, week, samp_size, non_hh_contacts, setting, 
+                national_cases_roll4, ur_code, state, 
+                national_cases_roll4_slope, percent_vaxxed_slope, 
+                sum_county_measures_shift_slope, StringencyIndex_Average_roll3_shiftmin_slope,
+                `national_cases_roll4:percent_vaxxed_slope`, residual, pred_lm,
+                baseline, phi, scale_baseline, hhs_region, sum_county_measures_shift,
+                StringencyIndex_Average_roll3_shiftmin, percent_vaxxed, intercept)
 
 agg_setting_comp <- setting_estimates %>% 
   pivot_longer(cols = c(contact_fit, baseline, scale_baseline),
@@ -217,6 +227,118 @@ setting_spec$setting <- factor(setting_spec$setting, levels = c("other", "social
           axis.title = element_text(size = 16),
           strip.text = element_text(size = 16),
           axis.text.x = element_text(angle = 20, hjust = 1)) -> setting_slope)
+
+#### setting time series ####
+# supplementary figure requires additional datasets
+setting_spatiotemporal_fits <- read_csv(paste0("spatiotemporal/contactsetting_72trunc_m1/fitted_predictions_work.csv"),
+                                        col_types = "ddiicdiDccDccfi") %>% ungroup() %>%
+  mutate(setting = "work") %>% 
+  bind_rows(read_csv(paste0("spatiotemporal/contactsetting_72trunc_m1/fitted_predictions_social.csv"),
+                     col_types = "ddiicdiDccDccfi") %>% ungroup() %>%
+              mutate(setting = "social")) %>% 
+  bind_rows(read_csv(paste0("spatiotemporal/contactsetting_72trunc_m1/fitted_predictions_shopping.csv"),
+                     col_types = "ddiicdiDccDccfi") %>% ungroup() %>%
+              mutate(setting = "shopping")) %>% 
+  bind_rows(read_csv(paste0("spatiotemporal/contactsetting_72trunc_m1/fitted_predictions_other.csv"),
+                     col_types = "ddiicdiDccDccfi") %>% ungroup() %>%
+              mutate(setting = "other"))
+
+
+setting_timeseries <- setting_spatiotemporal_fits %>% 
+  dplyr::select(fips, week, setting, fit) %>%
+  rename(contact_fit = fit) %>% 
+  group_by(fips, setting) %>% 
+  mutate(z_contact = c(scale(contact_fit)),
+         mean_contact = mean(contact_fit)) %>% 
+  group_by(setting) %>% 
+  mutate(rel_mean_contact = mean_contact/mean(contact_fit)) %>% 
+  ungroup()
+
+setting_timeseries %>% 
+  ggplot(aes(x = week, y = z_contact, group = interaction(fips, setting),
+             col = rel_mean_contact)) + # this intercept is incorporating the random effect
+  geom_line(alpha = 0.4) +
+  theme_dark() +
+  theme(axis.text = element_text(size = 16),# angle = 10, hjust = 1),
+        plot.subtitle=element_text(size=16, hjust=0.5),
+        strip.text = element_text(size = 16),
+        axis.title = element_text(size = 18),
+        axis.title.y = element_text(vjust = 2),
+        panel.spacing = unit(2, "lines"),
+        legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14, vjust = 0.5), # + 
+        legend.position = "right") + #c(0.8, 0.3)) +  #"right") +
+  guides(color = guide_colorbar(title = "Relative\npandemic\ncontact",
+                                title.position = "top", title.vjust = 5)) + 
+  scale_x_date(breaks = seq(as.Date("2020-07-01"), as.Date("2021-04-30"),
+                            by = "3 month"),
+               labels = c("Jul 2020", "Oct", "Jan 2021",
+                          "Apr"),
+               minor_breaks = "1 month") +
+  scale_y_continuous(limits = c(-5, 2.5), breaks = c(-2, -1, 0, 1, 2)) + # can change this
+  labs(y = "Mean contacts\n(z-score)") +
+  scale_color_gradientn(colors = met.brewer("OKeeffe1"), 
+                        limits = c(0.45, 1.5),
+                        breaks = c(0.5, 1, 1.5), 
+                        labels = c("below", "mean", "above"),
+                        values = c(1, (1-0.45)/(1.5-0.45), 0)) +
+  facet_wrap(~setting) -> setting_fig2a
+
+nyt_national_roll <- read_csv("data/input/nyt-us-national-rolling-avg.csv",
+                              col_types = "Dciddidd") %>% 
+  mutate(week = round_date(date, unit = "week")) %>% 
+  group_by(week) %>%
+  summarise(national_cases = sum(cases)) %>% 
+  #national_cases = ifelse(national_cases < 0, 0, national_cases)) %>% # three negs?? 
+  ungroup() %>% 
+  mutate(#national_cases_roll3 = zoo::rollmean(national_cases, k = 3, fill = NA, align = "right"),
+    national_cases_roll4 = zoo::rollmean(national_cases, k = 4, fill = NA, align = "right")) %>% 
+  #national_cases_roll3_per100k = round(national_cases_roll3/(331900000/1e5), 2), # total us pop
+  #national_cases_roll4_per100k = round(national_cases_roll4/(331900000/1e5), 2)) %>% 
+  ungroup()
+
+# add national incidence below temporal contact curve
+(nyt_national_roll %>% 
+    mutate(national_cases_roll3c = zoo::rollmean(national_cases, k = 3, fill = NA, align = "center")) %>% 
+    filter(week >= ymd("2020-06-07"),
+           week <= ymd("2021-04-25")) %>% 
+    ggplot(aes(x = week, y = scale(national_cases_roll3c))) + # cases_avg is rolling average, smooths drops in weekend/holidays
+    geom_line(linewidth = 1, col = "black") + # aes(col = "black")) +
+    #scale_color_identity(guide = "legend", name = "", labels = "National incident cases") +
+    theme_classic() +
+    labs(y = "Natl. incid.\n(z-score)") +
+    scale_x_date(expand = c(0,0),
+                 limits = c(as.Date("2020-06-01"), as.Date("2021-04-25"))) +#, breaks = seq(as.Date("2020-09-15"), as.Date("2021-05-15"), by = "1 month"), DATE_LABELS ="%B") +
+    theme(panel.background = element_rect(fill = "transparent"), # bg of the panel
+          plot.background = element_rect(fill = "transparent", color = NA), # bg of the plot
+          axis.title.x = element_blank(),
+          axis.text.x = element_blank(),
+          axis.text.y = element_text(color = "black"),
+          axis.ticks = element_blank(), # change to just y to line up
+          #axis.title.y = element_blank(),
+          #axis.line.y = element_blank(),
+          axis.line.x = element_blank()
+    ) -> casecurve)
+
+cc_grob <- ggplotGrob(casecurve)
+
+pb <- ggplot_build(setting_fig2a)
+xlim <- pb$layout$panel_params[[1]]$x.range
+ylim <- pb$layout$panel_params[[1]]$y.range
+
+# Use full width (xmin = full plot), and a narrow y-range at the bottom
+inset_ylow  <- ylim[1]
+inset_yhigh <- ylim[1] + 0.33 * diff(ylim)  # 15% of height at bottom
+
+# Add the inset
+setting_fig2a + annotation_custom(
+  grob = cc_grob,
+  xmin = xlim[1] - (0.0025 * xlim[1]),
+  xmax = xlim[2],
+  ymin = inset_ylow,
+  ymax = inset_yhigh
+)
+ggsave("figures/supp/setting-timeseries.pdf", height = 6, width = 10)
 
 
 #### add google mobility data #### 

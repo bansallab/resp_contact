@@ -146,7 +146,7 @@ combine %>%
   geom_bar(aes(y = prop_hh, fill = "ACS"), stat = "identity", alpha = 0.5, col = NA) +
   scale_x_continuous(breaks = c(1, 2, 3, 4, 5, 6, 7)) +
   labs(x = "household size", y = "frequency", fill = "Dataset") +
-  facet_wrap(~fips) +
+  facet_wrap(~county_name) +
   scale_fill_manual(values = fills)
 ggsave("figures/supp/hh-size-comp-raked-weighted.pdf", height = 8, width = 10)
 
